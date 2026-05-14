@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  html, body {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background: #FDF8F4;
+    background-image:
+      radial-gradient(at 0% 0%, rgba(235, 153, 136, 0.15) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(245, 195, 162, 0.18) 0px, transparent 50%);
+    background-attachment: fixed;
+  }
+  /* Ensure native form controls inherit font */
+  input, button, textarea, select { font: inherit; }
+}
+
+@layer utilities {
+  .safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), 1rem); }
+  .safe-top { padding-top: max(env(safe-area-inset-top), 0.5rem); }
+  .glass {
+    background: rgba(253, 248, 244, 0.75);
+    backdrop-filter: saturate(140%) blur(14px);
+    -webkit-backdrop-filter: saturate(140%) blur(14px);
+  }
+  .grain {
+    position: relative;
+  }
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.04;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+}
+
+/* Hide scrollbar on horizontal scroll snap rows */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
