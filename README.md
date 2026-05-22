@@ -15,6 +15,7 @@ A privacy-first period and cycle tracking PWA with partner sharing. Built with N
 - **Dark mode** — Light / dark / system themes with no flash on load; the whole palette flips via CSS variables. Quick toggle on the dashboard, full control in Settings.
 - **Gentle reminders** — Opt-in daily check-in nudge and "period approaching" alerts (2 days / 1 day / day-of), with a test button. Foreground/installed-PWA scheduling out of the box (see notes below).
 - **Encouragement** — A phase-aware daily affirmation and self-care suggestion, plus a low-pressure logging-streak chip.
+- **Pregnancy mode** — Switch on with your due date, last period, or conception date. Week-by-week fetal development (size comparisons, length/weight, milestones) with a scrubber to look ahead or back, a due-date countdown and trimester tracker, a kick counter, a contraction timer, and weight-gain tracking. Partners can follow along too.
 - **Row-level security** — All data scoped by RLS policies in Postgres. A partner can only see what you explicitly enabled.
 
 ## Stack
@@ -30,7 +31,7 @@ A privacy-first period and cycle tracking PWA with partner sharing. Built with N
 ## 1 · Set up Supabase
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. In **SQL Editor**, paste the entire contents of `supabase/schema.sql` and run it. This creates the tables, RLS policies, triggers, and RPCs.
+2. In **SQL Editor**, paste the entire contents of `supabase/schema.sql` and run it. This creates the tables, RLS policies, triggers, and RPCs. Then run `supabase/pregnancy.sql` to add pregnancy mode (additive — safe to run on an existing database).
 3. In **Authentication → Providers**, make sure **Email** is enabled. For local testing you can also disable "Confirm email" under Auth settings so signups work without verifying.
 4. In **Authentication → URL Configuration**, set:
    - **Site URL:** `https://your-app.vercel.app` (after deploy) — for local dev, `http://localhost:3000`
@@ -184,6 +185,22 @@ The palette lives entirely in CSS variables in `src/app/globals.css`. `:root` ho
 Settings → **Reminders** asks for the Web Notification permission and stores preferences (`enabled`, daily time, period alerts) in `localStorage`. `ReminderScheduler` (mounted in `AppShell`) checks every minute while the app is open and fires at most one daily and one period reminder per day; the predicted next-period date is synced to `localStorage` by `PredictionSync` on the dashboard so alerts work without a round-trip.
 
 This is **foreground / installed-PWA** scheduling — it runs while Luna is open or running as an installed app. For true background push when the app is fully closed, add a server with VAPID keys: subscribe via `pushManager.subscribe`, store the subscription, and send pushes from a cron/server that your `public/sw.js` handles in a `push` event listener. The client pieces (permission flow, `showNotification`, SW registration) are already in place to build on.
+
+## Pregnancy mode
+
+Switch on from the dashboard ("Expecting? Track your pregnancy") or Settings → Pregnancy. You enter one date — **due date**, **last period**, or **conception** — and Luna derives an effective LMP (week 0) and due date (`src/lib/pregnancy.ts`), then computes your current week, day-in-week, trimester, progress, and countdown.
+
+What you get:
+
+- **Week-by-week fetal development** (`src/lib/fetal-development.ts`, weeks 4–40): produce size comparison, length, weight, and a milestone, with a scrubber to look ahead/back.
+- **Kick counter** — tap-to-count with a session timer; sessions saved to `kick_sessions`.
+- **Contraction timer** — start/stop timing with duration + frequency (gap-to-previous) and a 5-1-1 reference; saved to `contractions`.
+- **Weight-gain tracking** — log in kg or lb, see gain since start and a sparkline; stored in `pregnancy_weights`.
+- **Partner view** — a connected partner sees a read-only pregnancy card on their dashboard, gated by the new `share_pregnancy` flag on `partner_connections`.
+
+**Setup:** run `supabase/pregnancy.sql` in the Supabase SQL Editor once (after `schema.sql`). It's additive and idempotent — it adds the `pregnancies`, `pregnancy_weights`, `kick_sessions`, and `contractions` tables (with RLS), and the `share_pregnancy` column. One active pregnancy per user is enforced by a partial unique index; ending a pregnancy moves it to history (`status = 'ended'`) and returns you to cycle tracking.
+
+All fetal data are general averages, not medical advice — the app says so where it matters, and dating from your provider's scans is always the most accurate.
 
 ## Disclaimer
 
