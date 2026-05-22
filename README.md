@@ -6,8 +6,8 @@ A privacy-first period and cycle tracking PWA with partner sharing. Built with N
 
 - **Cycle tracking** — Log periods (flow, start day), symptoms, mood, energy, sleep, free-form notes.
 - **Predictions** — Cycle-length and period-length averages computed from your last 6 cycles, with ovulation and fertile-window estimates.
-- **Calendar view** — Month grid with past periods, predicted periods, fertile window, and per-day notes.
-- **Insights** — Cycle-length history chart and most-logged symptoms / moods.
+- **Calendar view** — Month grid with past periods, predicted periods, fertile window, and per-day notes. Loads your entire history (tap the month title to jump to any month/year), so imported data going back years displays correctly.
+- **Insights** — Full cycle history & statistics (average / shortest / longest cycle, variation, regularity assessment), a complete list of every cycle with its length and deviation from your average, a recent-cycle trend chart, an upcoming-periods forecast, and most-logged symptoms / moods. Built from your entire history, not just the last year.
 - **Partner sharing** — Generate a single-use invite link, partner accepts, both sides can toggle exactly what is shared (periods, symptoms, predictions). Disconnect anytime.
 - **Import from Flo (and others)** — Upload a Flo data-export `.json` and Luna parses your cycles, period days, symptoms, and moods, then imports them non-destructively (existing days are never overwritten). Tolerant of several export shapes; also accepts plain JSON arrays.
 - **Password reset** — "Forgot password?" on the sign-in screen sends a secure reset link.

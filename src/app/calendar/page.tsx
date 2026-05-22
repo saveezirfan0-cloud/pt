@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation';
-import { formatISO, subDays } from 'date-fns';
 import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/components/AppShell';
 import { PeriodCalendar } from '@/components/PeriodCalendar';
@@ -14,12 +13,11 @@ export default async function CalendarPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/auth/login');
 
-  const since = formatISO(subDays(new Date(), 365), { representation: 'date' });
-
+  // Load full history so any month — even years back — renders correctly.
   const [{ data: profile }, { data: periods }, { data: dailies }] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
-    supabase.from('period_logs').select('*').eq('user_id', user.id).gte('date', since),
-    supabase.from('daily_logs').select('*').eq('user_id', user.id).gte('date', since),
+    supabase.from('period_logs').select('*').eq('user_id', user.id).order('date', { ascending: true }),
+    supabase.from('daily_logs').select('*').eq('user_id', user.id).order('date', { ascending: true }),
   ]);
 
   const info = computeCycleInfo(

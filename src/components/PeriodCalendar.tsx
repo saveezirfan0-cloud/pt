@@ -9,6 +9,8 @@ import {
   isSameDay,
   isSameMonth,
   isWithinInterval,
+  setMonth,
+  setYear,
   startOfMonth,
   startOfWeek,
   subMonths,
@@ -34,6 +36,7 @@ export function PeriodCalendar({
 }) {
   const [cursor, setCursor] = useState(() => new Date());
   const [selected, setSelected] = useState<Date | null>(new Date());
+  const [picking, setPicking] = useState(false);
 
   const periodMap = useMemo(() => {
     const m = new Map<string, PeriodLog>();
@@ -78,7 +81,13 @@ export function PeriodCalendar({
         >
           <ChevronLeft size={18} />
         </button>
-        <h2 className="font-serif text-2xl">{format(cursor, 'MMMM yyyy')}</h2>
+        <button
+          onClick={() => setPicking((p) => !p)}
+          className="font-serif text-2xl hover:text-rose-600 transition-colors"
+          aria-label="Jump to month or year"
+        >
+          {format(cursor, 'MMMM yyyy')}
+        </button>
         <button
           onClick={() => setCursor(addMonths(cursor, 1))}
           className="h-9 w-9 rounded-full border border-cream-200 grid place-items-center text-ink-700 hover:bg-cream-100"
@@ -87,6 +96,59 @@ export function PeriodCalendar({
           <ChevronRight size={18} />
         </button>
       </div>
+
+      {picking && (
+        <div className="rounded-3xl border border-cream-200 bg-cream-50/80 p-4 animate-fade-in">
+          <div className="flex items-center justify-between mb-3">
+            <button
+              onClick={() => setCursor(setYear(cursor, cursor.getFullYear() - 1))}
+              className="h-8 w-8 rounded-full border border-cream-200 grid place-items-center text-ink-700 hover:bg-cream-100"
+              aria-label="Previous year"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="font-serif text-xl">{cursor.getFullYear()}</span>
+            <button
+              onClick={() => setCursor(setYear(cursor, cursor.getFullYear() + 1))}
+              className="h-8 w-8 rounded-full border border-cream-200 grid place-items-center text-ink-700 hover:bg-cream-100"
+              aria-label="Next year"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+          <div className="grid grid-cols-4 gap-1.5">
+            {Array.from({ length: 12 }).map((_, m) => {
+              const isCur = cursor.getMonth() === m;
+              return (
+                <button
+                  key={m}
+                  onClick={() => {
+                    setCursor(setMonth(cursor, m));
+                    setPicking(false);
+                  }}
+                  className={[
+                    'rounded-xl py-2 text-sm transition',
+                    isCur ? 'bg-rose-500 text-cream-50' : 'bg-cream-50 text-ink-700 hover:bg-cream-100 border border-cream-200',
+                  ].join(' ')}
+                >
+                  {format(setMonth(cursor, m), 'MMM')}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            onClick={() => {
+              const now = new Date();
+              setCursor(now);
+              setSelected(now);
+              setPicking(false);
+            }}
+            className="mt-3 w-full rounded-xl border border-cream-200 bg-cream-50 py-2 text-sm text-ink-600 hover:bg-cream-100"
+          >
+            Jump to today
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-7 gap-1 text-[10px] uppercase tracking-widest text-ink-500 text-center">
         {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
