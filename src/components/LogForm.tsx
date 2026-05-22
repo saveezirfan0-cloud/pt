@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, X } from 'lucide-react';
+import { Check, Plus, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import {
   FLOW_COLORS,
@@ -13,6 +13,8 @@ import {
 } from '@/lib/cycle';
 
 type Flow = PeriodLog['flow'];
+
+const INTENSITY_LABELS = ['', 'barely', 'mild', 'moderate', 'strong', 'severe'];
 
 export function LogForm({
   initialDate,
@@ -28,7 +30,15 @@ export function LogForm({
   const [flow, setFlow] = useState<Flow | null>(initialPeriod?.flow ?? null);
   const [isStart, setIsStart] = useState<boolean>(initialPeriod?.is_period_start ?? false);
   const [mood, setMood] = useState<string[]>(initialDaily?.mood ?? []);
-  const [symptoms, setSymptoms] = useState<string[]>(initialDaily?.symptoms ?? []);
+  // symptom name -> intensity (1..5). Presence of a key means "selected".
+  const [symptomMap, setSymptomMap] = useState<Record<string, number>>(() => {
+    const base: Record<string, number> = {};
+    const details = initialDaily?.symptom_details || {};
+    for (const s of initialDaily?.symptoms ?? []) base[s] = details[s] ?? 3;
+    return base;
+  });
+  const [customSymptoms, setCustomSymptoms] = useState<string[]>([]);
+  const [newSymptom, setNewSymptom] = useState('');
   const [energy, setEnergy] = useState<number | null>(initialDaily?.energy_level ?? null);
   const [sleep, setSleep] = useState<string>(
     initialDaily?.sleep_hours != null ? String(initialDaily.sleep_hours) : ''
@@ -38,8 +48,49 @@ export function LogForm({
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  function toggle(list: string[], setList: (v: string[]) => void, val: string) {
-    setList(list.includes(val) ? list.filter((x) => x !== val) : [...list, val]);
+  // Load the user's custom symptom vocabulary.
+  useEffect(() => {
+    (async () => {
+      const supabase = createClient();
+      const { data } = await supabase.from('custom_symptoms').select('name').order('name');
+      if (data) setCustomSymptoms(data.map((r: { name: string }) => r.name));
+    })();
+  }, []);
+
+  function toggleMood(val: string) {
+    setMood((m) => (m.includes(val) ? m.filter((x) => x !== val) : [...m, val]));
+  }
+
+  function toggleSymptom(val: string) {
+    setSymptomMap((prev) => {
+      const next = { ...prev };
+      if (val in next) delete next[val];
+      else next[val] = 3;
+      return next;
+    });
+  }
+
+  function setIntensity(val: string, level: number) {
+    setSymptomMap((prev) => ({ ...prev, [val]: level }));
+  }
+
+  async function addCustomSymptom() {
+    const name = newSymptom.trim().toLowerCase();
+    if (!name) return;
+    setNewSymptom('');
+    if (!customSymptoms.includes(name) && !SYMPTOM_OPTIONS.includes(name)) {
+      setCustomSymptoms((c) => [...c, name].sort());
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('custom_symptoms')
+          .upsert({ user_id: user.id, name }, { onConflict: 'user_id,name' });
+      }
+    }
+    setSymptomMap((prev) => ({ ...prev, [name]: 3 }));
   }
 
   async function save() {
@@ -56,18 +107,14 @@ export function LogForm({
       return;
     }
 
+    const symptoms = Object.keys(symptomMap);
+
     try {
-      // Period
       if (flow) {
         const { error: e1 } = await supabase
           .from('period_logs')
           .upsert(
-            {
-              user_id: user.id,
-              date,
-              flow,
-              is_period_start: isStart,
-            },
+            { user_id: user.id, date, flow, is_period_start: isStart },
             { onConflict: 'user_id,date' }
           );
         if (e1) throw e1;
@@ -80,24 +127,22 @@ export function LogForm({
         if (e1) throw e1;
       }
 
-      // Daily (if anything was provided)
       const hasDaily =
         mood.length > 0 || symptoms.length > 0 || energy != null || sleep || notes;
       if (hasDaily) {
-        const { error: e2 } = await supabase
-          .from('daily_logs')
-          .upsert(
-            {
-              user_id: user.id,
-              date,
-              mood,
-              symptoms,
-              energy_level: energy,
-              sleep_hours: sleep ? Number(sleep) : null,
-              notes: notes || null,
-            },
-            { onConflict: 'user_id,date' }
-          );
+        const { error: e2 } = await supabase.from('daily_logs').upsert(
+          {
+            user_id: user.id,
+            date,
+            mood,
+            symptoms,
+            symptom_details: symptomMap,
+            energy_level: energy,
+            sleep_hours: sleep ? Number(sleep) : null,
+            notes: notes || null,
+          },
+          { onConflict: 'user_id,date' }
+        );
         if (e2) throw e2;
       } else if (initialDaily) {
         const { error: e2 } = await supabase
@@ -108,12 +153,8 @@ export function LogForm({
         if (e2) throw e2;
       }
 
-      // Update last_period_start on profile if we just marked a start
       if (flow && isStart) {
-        await supabase
-          .from('profiles')
-          .update({ last_period_start: date })
-          .eq('id', user.id);
+        await supabase.from('profiles').update({ last_period_start: date }).eq('id', user.id);
       }
 
       setMsg('Saved.');
@@ -125,6 +166,8 @@ export function LogForm({
       setSaving(false);
     }
   }
+
+  const allSymptoms = [...SYMPTOM_OPTIONS, ...customSymptoms.filter((c) => !SYMPTOM_OPTIONS.includes(c))];
 
   return (
     <div className="space-y-6 animate-slide-up">
@@ -145,9 +188,7 @@ export function LogForm({
               onClick={() => setFlow(flow === f ? null : f)}
               className={[
                 'rounded-2xl py-3 text-xs uppercase tracking-widest border transition',
-                flow === f
-                  ? 'border-transparent text-cream-50'
-                  : 'border-cream-200 bg-cream-50 text-ink-700',
+                flow === f ? 'border-transparent text-cream-50' : 'border-cream-200 bg-cream-50 text-ink-700',
               ].join(' ')}
               style={flow === f ? { background: FLOW_COLORS[f] } : undefined}
             >
@@ -169,15 +210,100 @@ export function LogForm({
       </Section>
 
       <Section title="Mood">
-        <Chips options={MOOD_OPTIONS} selected={mood} onToggle={(v) => toggle(mood, setMood, v)} />
+        <div className="flex flex-wrap gap-2">
+          {MOOD_OPTIONS.map((opt) => {
+            const on = mood.includes(opt);
+            return (
+              <button
+                key={opt}
+                onClick={() => toggleMood(opt)}
+                className={[
+                  'rounded-full px-4 py-2 text-sm border transition',
+                  on ? 'bg-ink-900 text-cream-50 border-transparent' : 'bg-cream-50 text-ink-700 border-cream-200',
+                ].join(' ')}
+              >
+                {opt}
+              </button>
+            );
+          })}
+        </div>
       </Section>
 
-      <Section title="Symptoms">
-        <Chips
-          options={SYMPTOM_OPTIONS}
-          selected={symptoms}
-          onToggle={(v) => toggle(symptoms, setSymptoms, v)}
-        />
+      <Section title="Symptoms" subtitle="Tap to add, then set how strong it felt.">
+        <div className="flex flex-wrap gap-2">
+          {allSymptoms.map((opt) => {
+            const on = opt in symptomMap;
+            return (
+              <button
+                key={opt}
+                onClick={() => toggleSymptom(opt)}
+                className={[
+                  'rounded-full px-4 py-2 text-sm border transition capitalize',
+                  on ? 'bg-ink-900 text-cream-50 border-transparent' : 'bg-cream-50 text-ink-700 border-cream-200',
+                ].join(' ')}
+              >
+                {opt}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Add custom symptom */}
+        <div className="mt-3 flex gap-2">
+          <input
+            type="text"
+            value={newSymptom}
+            onChange={(e) => setNewSymptom(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                addCustomSymptom();
+              }
+            }}
+            placeholder="Add your own symptom…"
+            maxLength={40}
+            className="flex-1 rounded-xl border border-cream-200 bg-cream-50 px-4 py-2.5 text-sm outline-none focus:border-rose-400"
+          />
+          <button
+            onClick={addCustomSymptom}
+            disabled={!newSymptom.trim()}
+            className="rounded-xl border border-cream-200 bg-cream-50 px-4 grid place-items-center text-ink-700 hover:bg-cream-100 disabled:opacity-40"
+            aria-label="Add symptom"
+          >
+            <Plus size={18} />
+          </button>
+        </div>
+
+        {/* Intensity sliders for selected symptoms */}
+        {Object.keys(symptomMap).length > 0 && (
+          <div className="mt-4 space-y-3">
+            {Object.keys(symptomMap).map((s) => (
+              <div key={s} className="rounded-2xl border border-cream-200 bg-cream-50/70 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-ink-900 capitalize">{s}</span>
+                  <span className="text-xs text-ink-500">{INTENSITY_LABELS[symptomMap[s]]}</span>
+                </div>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => setIntensity(s, n)}
+                      className={[
+                        'h-8 rounded-lg border text-xs transition',
+                        symptomMap[s] >= n
+                          ? 'border-transparent bg-rose-500 text-cream-50'
+                          : 'border-cream-200 bg-cream-50 text-ink-500',
+                      ].join(' ')}
+                      aria-label={`Intensity ${n}`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </Section>
 
       <Section title="Energy" subtitle="1 — drained · 5 — energized">
@@ -188,9 +314,7 @@ export function LogForm({
               onClick={() => setEnergy(energy === n ? null : n)}
               className={[
                 'rounded-2xl py-3 border text-lg font-serif transition',
-                energy === n
-                  ? 'border-transparent bg-rose-500 text-cream-50'
-                  : 'border-cream-200 bg-cream-50 text-ink-700',
+                energy === n ? 'border-transparent bg-rose-500 text-cream-50' : 'border-cream-200 bg-cream-50 text-ink-700',
               ].join(' ')}
             >
               {n}
@@ -262,37 +386,5 @@ function Section({
       {subtitle && <p className="text-xs text-ink-500 mt-0.5">{subtitle}</p>}
       <div className="mt-3">{children}</div>
     </section>
-  );
-}
-
-function Chips({
-  options,
-  selected,
-  onToggle,
-}: {
-  options: string[];
-  selected: string[];
-  onToggle: (v: string) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {options.map((opt) => {
-        const on = selected.includes(opt);
-        return (
-          <button
-            key={opt}
-            onClick={() => onToggle(opt)}
-            className={[
-              'rounded-full px-4 py-2 text-sm border transition',
-              on
-                ? 'bg-ink-900 text-cream-50 border-transparent'
-                : 'bg-cream-50 text-ink-700 border-cream-200',
-            ].join(' ')}
-          >
-            {opt}
-          </button>
-        );
-      })}
-    </div>
   );
 }

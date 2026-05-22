@@ -4,10 +4,10 @@ A privacy-first period and cycle tracking PWA with partner sharing. Built with N
 
 ## Features
 
-- **Cycle tracking** — Log periods (flow, start day), symptoms, mood, energy, sleep, free-form notes.
+- **Cycle tracking** — Log periods (flow, start day), mood, energy, sleep, free-form notes, and symptoms with **custom names** and a **1–5 intensity** rating each.
+- **Insights & patterns** — Full cycle history & statistics (average / shortest / longest cycle, variation, regularity), a complete list of every cycle with its length and deviation, a trend chart, an upcoming-periods forecast, a **symptom × cycle-phase heatmap**, and **plain-language pattern insights** ("you log cramps most during your menstrual phase", "short sleep brings on more headaches", "your cycle has been running longer recently"). Built from your entire history.
 - **Predictions** — Cycle-length and period-length averages computed from your last 6 cycles, with ovulation and fertile-window estimates.
 - **Calendar view** — Month grid with past periods, predicted periods, fertile window, and per-day notes. Loads your entire history (tap the month title to jump to any month/year), so imported data going back years displays correctly.
-- **Insights** — Full cycle history & statistics (average / shortest / longest cycle, variation, regularity assessment), a complete list of every cycle with its length and deviation from your average, a recent-cycle trend chart, an upcoming-periods forecast, and most-logged symptoms / moods. Built from your entire history, not just the last year.
 - **Partner sharing** — Generate a single-use invite link, partner accepts, both sides can toggle exactly what is shared (periods, symptoms, predictions). Disconnect anytime.
 - **Import from Flo (and others)** — Upload a Flo data-export `.json` and Luna parses your cycles, period days, symptoms, and moods, then imports them non-destructively (existing days are never overwritten). Tolerant of several export shapes; also accepts plain JSON arrays.
 - **Password reset** — "Forgot password?" on the sign-in screen sends a secure reset link.
@@ -31,7 +31,7 @@ A privacy-first period and cycle tracking PWA with partner sharing. Built with N
 ## 1 · Set up Supabase
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. In **SQL Editor**, paste the entire contents of `supabase/schema.sql` and run it. This creates the tables, RLS policies, triggers, and RPCs. Then run `supabase/pregnancy.sql` to add pregnancy mode (additive — safe to run on an existing database).
+2. In **SQL Editor**, paste the entire contents of `supabase/schema.sql` and run it. This creates the tables, RLS policies, triggers, and RPCs. Then run `supabase/pregnancy.sql` (pregnancy mode) and `supabase/insights.sql` (custom symptoms + intensity). Both are additive and safe to run on an existing database.
 3. In **Authentication → Providers**, make sure **Email** is enabled. For local testing you can also disable "Confirm email" under Auth settings so signups work without verifying.
 4. In **Authentication → URL Configuration**, set:
    - **Site URL:** `https://your-app.vercel.app` (after deploy) — for local dev, `http://localhost:3000`
@@ -201,6 +201,17 @@ What you get:
 **Setup:** run `supabase/pregnancy.sql` in the Supabase SQL Editor once (after `schema.sql`). It's additive and idempotent — it adds the `pregnancies`, `pregnancy_weights`, `kick_sessions`, and `contractions` tables (with RLS), and the `share_pregnancy` column. One active pregnancy per user is enforced by a partial unique index; ending a pregnancy moves it to history (`status = 'ended'`) and returns you to cycle tracking.
 
 All fetal data are general averages, not medical advice — the app says so where it matters, and dating from your provider's scans is always the most accurate.
+
+## Roadmap (planned, not yet built)
+
+These are designed but intentionally deferred so each ships well rather than half-done:
+
+- **Fertility / FAM (TTC & natural birth control)** — BBT charting, cervical-mucus and LH-test logging, ovulation confirmation, fertile-window + implantation-window estimates, pregnancy-probability scoring. Needs a `fertility_logs` table and a charting view. (Natural birth control carries real safety implications and will ship with prominent guidance to use a clinically validated method/instructor.)
+- **Breastfeeding-aware prediction** — a postpartum mode that widens or flags prediction uncertainty based on baby age, night feeds, pumping, solids, and weaning, since postpartum cycles are often irregular or anovulatory.
+- **Islamic women's health (organisational, not fatwa)** — nifas vs istihada vs menstruation vs purity distinction, ghusl reminders, "prayer/fasting currently excused" status derived from logged bleeding, and madhhab-aware day-limit settings (Hanafi/Shafi'i/Maliki/Hanbali/Ja'fari). Will ship with clear "consult a scholar" disclaimers.
+- **Differentiated partner experience** — a male/partner view focused on understanding, key info, and how to help (fertile window, PMS heads-up, pregnancy progress), opt-in per area by the primary user. Includes fixing partner sign-up onboarding.
+- **AI chat assistant** — a conversational wellness helper. The rule-based insight engine above already covers most "AI insights"; a true LLM chat needs a server route holding an Anthropic API key (the client pieces are straightforward to add).
+- **Wearable integration** — requires device OAuth (Apple Health / Google Fit / Oura etc.); out of scope until the above land.
 
 ## Disclaimer
 

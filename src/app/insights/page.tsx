@@ -4,6 +4,9 @@ import { AppShell } from '@/components/AppShell';
 import { CycleStats } from '@/components/CycleStats';
 import { CycleHistory } from '@/components/CycleHistory';
 import { PeriodForecast } from '@/components/PeriodForecast';
+import { AIInsights } from '@/components/AIInsights';
+import { SymptomHeatmap } from '@/components/SymptomHeatmap';
+import { generateInsights } from '@/lib/patterns';
 import { computeCycleInfo, type DailyLog, type PeriodLog } from '@/lib/cycle';
 
 export const dynamic = 'force-dynamic';
@@ -23,11 +26,13 @@ export default async function InsightsPage() {
   ]);
 
   const allPeriods = (periods as PeriodLog[]) || [];
+  const allDailies = (dailies as DailyLog[]) || [];
   const info = computeCycleInfo(
     allPeriods,
     profile?.average_cycle_length || 28,
     profile?.average_period_length || 5
   );
+  const insights = generateInsights(info, allPeriods, allDailies);
 
   return (
     <AppShell>
@@ -36,9 +41,16 @@ export default async function InsightsPage() {
         <h1 className="font-serif text-4xl mt-1">Your <em className="italic text-rose-500">patterns</em>.</h1>
       </div>
       <div className="space-y-6">
+        <AIInsights insights={insights} />
         <CycleHistory periods={allPeriods} />
+        <SymptomHeatmap
+          periods={allPeriods}
+          dailies={allDailies}
+          avgPeriod={info.periodLength}
+          avgCycle={info.cycleLength}
+        />
         <PeriodForecast info={info} />
-        <CycleStats info={info} dailies={(dailies as DailyLog[]) || []} />
+        <CycleStats info={info} dailies={allDailies} />
       </div>
     </AppShell>
   );

@@ -22,6 +22,7 @@ export type DailyLog = {
   date: string;
   mood: string[];
   symptoms: string[];
+  symptom_details?: Record<string, number> | null;
   energy_level: number | null;
   sleep_hours: number | null;
   notes: string | null;
