@@ -4,7 +4,8 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, Check, FileJson, Loader2, Upload, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { parseFloExport, type ImportPreview } from '@/lib/import';
+import { type ImportPreview } from '@/lib/import';
+import { parseFloFile } from '@/lib/import-file';
 
 type Phase = 'idle' | 'parsing' | 'preview' | 'importing' | 'done' | 'error';
 
@@ -42,13 +43,7 @@ export function FloImport() {
     setPhase('parsing');
     try {
       const text = await file.text();
-      let json: unknown;
-      try {
-        json = JSON.parse(text);
-      } catch {
-        throw new Error("That file isn't valid JSON. Export your data from Flo as JSON and try again.");
-      }
-      const parsed = parseFloExport(json);
+      const parsed = parseFloFile(file.name, text);
       setPreview(parsed);
       setPhase('preview');
     } catch (e: any) {
@@ -180,7 +175,8 @@ export function FloImport() {
           </div>
           <p className="mt-4 font-serif text-2xl">Import your history</p>
           <p className="text-ink-600 text-sm mt-1">
-            Drop your Flo data-export <span className="font-medium">.json</span> file here.
+            Drop your Flo export here — the <span className="font-medium">.txt</span> or{' '}
+            <span className="font-medium">.json</span> file Flo sent you.
           </p>
           <button
             onClick={() => inputRef.current?.click()}
@@ -190,7 +186,7 @@ export function FloImport() {
             {phase === 'parsing' ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
             {phase === 'parsing' ? 'Reading file…' : 'Choose file'}
           </button>
-          <input ref={inputRef} type="file" accept=".json,application/json" onChange={onPick} className="hidden" />
+          <input ref={inputRef} type="file" accept=".json,.txt,application/json,text/plain" onChange={onPick} className="hidden" />
           {fileName && phase !== 'parsing' && (
             <p className="text-xs text-ink-500 mt-3 truncate">Selected: {fileName}</p>
           )}
@@ -300,14 +296,15 @@ export function FloImport() {
         <div className="rounded-3xl border border-cream-200 bg-cream-50/50 p-5">
           <h3 className="font-serif text-lg">How to get your Flo file</h3>
           <ol className="mt-2 space-y-1.5 text-sm text-ink-600 list-decimal list-inside">
-            <li>Open Flo → Menu (your avatar) → Help.</li>
-            <li>Scroll down and tap “Contact us”, then request a data export.</li>
-            <li>Flo emails you a <span className="font-medium">.json</span> file (choose JSON, not CSV).</li>
+            <li>Open Flo → Menu (your avatar) → Settings.</li>
+            <li>Find “Download my data” (or request it via Help → Contact us).</li>
+            <li>Flo emails you your data as a <span className="font-medium">.txt</span> file.</li>
             <li>Download it, then upload it here.</li>
           </ol>
           <p className="text-xs text-ink-500 mt-3 leading-relaxed">
-            Other apps that export plain JSON often work too. We map flow intensity and any matching
-            symptoms &amp; moods automatically.
+            We import your period history and any logged symptoms &amp; moods, mapping them to Luna&apos;s
+            options automatically. JSON exports from other apps work too. (Sleep, water, and weight
+            entries aren&apos;t imported — Luna doesn&apos;t track those.)
           </p>
         </div>
       )}

@@ -1,43 +1,41 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Import, LogOut } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
+import { Flame, Settings } from 'lucide-react';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
-export function AppHeader({ name }: { name: string | null }) {
-  const router = useRouter();
-  async function signOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.replace('/');
-    router.refresh();
-  }
+export function AppHeader({ name, streak = 0 }: { name: string | null; streak?: number }) {
   const greeting = greetingFor();
   return (
-    <header className="flex items-center justify-between mb-4">
+    <header className="flex items-start justify-between mb-4">
       <div>
         <p className="text-xs uppercase tracking-[0.25em] text-ink-500">{greeting}</p>
         <h1 className="font-serif text-3xl leading-none mt-1">
-          {name ? <>Hi, <em className="italic text-rose-500">{name}</em></> : 'Welcome'}
+          {name ? (
+            <>
+              Hi, <em className="italic text-rose-500">{name}</em>
+            </>
+          ) : (
+            'Welcome'
+          )}
         </h1>
+        {streak >= 1 && (
+          <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1 text-xs font-medium text-rose-600">
+            <Flame size={13} strokeWidth={2} />
+            {streak}-day check-in streak
+          </span>
+        )}
       </div>
       <div className="flex items-center gap-2">
+        <ThemeToggle />
         <Link
-          href="/import"
+          href="/settings"
           className="rounded-full h-10 w-10 grid place-items-center border border-cream-200 bg-cream-50/70 hover:bg-cream-100 text-ink-700"
-          aria-label="Import data"
-          title="Import from another app"
+          aria-label="Settings"
+          title="Settings"
         >
-          <Import size={18} />
+          <Settings size={18} />
         </Link>
-        <button
-          onClick={signOut}
-          className="rounded-full h-10 w-10 grid place-items-center border border-cream-200 bg-cream-50/70 hover:bg-cream-100 text-ink-700"
-          aria-label="Sign out"
-        >
-          <LogOut size={18} />
-        </button>
       </div>
     </header>
   );

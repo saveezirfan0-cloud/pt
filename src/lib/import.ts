@@ -1,7 +1,7 @@
 import { addDays, differenceInCalendarDays, format, isValid, parseISO } from 'date-fns';
 import { MOOD_OPTIONS, SYMPTOM_OPTIONS, type PeriodLog } from '@/lib/cycle';
 
-type Flow = PeriodLog['flow'];
+export type Flow = PeriodLog['flow'];
 
 export type ParsedPeriodDay = {
   date: string; // YYYY-MM-DD
@@ -29,7 +29,7 @@ export type ImportPreview = {
  * ------------------------------------------------------------------ */
 
 // Flo + common synonyms → our four-step flow scale.
-const FLOW_MAP: Record<string, Flow> = {
+export const FLOW_MAP: Record<string, Flow> = {
   spotting: 'spotting',
   spot: 'spotting',
   very_light: 'spotting',
@@ -47,7 +47,7 @@ const FLOW_MAP: Record<string, Flow> = {
 };
 
 // Numeric intensity (1..4 or 1..5) → flow.
-function numericFlow(n: number): Flow | null {
+export function numericFlow(n: number): Flow | null {
   if (n <= 0) return null;
   if (n === 1) return 'spotting';
   if (n === 2) return 'light';
@@ -56,7 +56,7 @@ function numericFlow(n: number): Flow | null {
 }
 
 // Flo symptom tokens / synonyms → our SYMPTOM_OPTIONS vocabulary.
-const SYMPTOM_MAP: Record<string, string> = {
+export const SYMPTOM_MAP: Record<string, string> = {
   cramps: 'cramps',
   cramp: 'cramps',
   abdominal_cramps: 'cramps',
@@ -89,7 +89,7 @@ const SYMPTOM_MAP: Record<string, string> = {
 };
 
 // Flo mood tokens / synonyms → our MOOD_OPTIONS vocabulary.
-const MOOD_MAP: Record<string, string> = {
+export const MOOD_MAP: Record<string, string> = {
   happy: 'happy',
   joyful: 'happy',
   calm: 'calm',
@@ -113,14 +113,14 @@ const MOOD_MAP: Record<string, string> = {
   drained: 'low',
 };
 
-const SYMPTOM_SET = new Set(SYMPTOM_OPTIONS);
-const MOOD_SET = new Set(MOOD_OPTIONS);
+export const SYMPTOM_SET = new Set(SYMPTOM_OPTIONS);
+export const MOOD_SET = new Set(MOOD_OPTIONS);
 
 /* ------------------------------------------------------------------ *
  * Helpers
  * ------------------------------------------------------------------ */
 
-function norm(s: string): string {
+export function norm(s: string): string {
   return s
     .toLowerCase()
     .trim()
@@ -274,14 +274,23 @@ function readSymptomsAndMoods(obj: Record<string, unknown>): {
  * Recursive scan
  * ------------------------------------------------------------------ */
 
-type Collector = {
+export type Collector = {
   periods: Map<string, Flow>; // date -> flow (last write wins)
   dailySymptoms: Map<string, Set<string>>;
   dailyMoods: Map<string, Set<string>>;
   unknownTokens: Set<string>;
 };
 
-function addPeriodDay(c: Collector, date: string, flow: Flow) {
+export function newCollector(): Collector {
+  return {
+    periods: new Map(),
+    dailySymptoms: new Map(),
+    dailyMoods: new Map(),
+    unknownTokens: new Set(),
+  };
+}
+
+export function addPeriodDay(c: Collector, date: string, flow: Flow) {
   const existing = c.periods.get(date);
   // keep the heavier of the two if a date is seen twice
   const order: Flow[] = ['spotting', 'light', 'medium', 'heavy'];
@@ -290,7 +299,7 @@ function addPeriodDay(c: Collector, date: string, flow: Flow) {
   }
 }
 
-function addDaily(c: Collector, date: string, symptoms: string[], mood: string[]) {
+export function addDaily(c: Collector, date: string, symptoms: string[], mood: string[]) {
   if (symptoms.length) {
     const set = c.dailySymptoms.get(date) ?? new Set<string>();
     symptoms.forEach((s) => set.add(s));
@@ -388,15 +397,17 @@ function scan(node: unknown, c: Collector, depth = 0) {
  * ------------------------------------------------------------------ */
 
 export function parseFloExport(raw: unknown): ImportPreview {
-  const warnings: string[] = [];
-  const c: Collector = {
-    periods: new Map(),
-    dailySymptoms: new Map(),
-    dailyMoods: new Map(),
-    unknownTokens: new Set(),
-  };
-
+  const c = newCollector();
   scan(raw, c);
+  return buildPreview(c, 'json');
+}
+
+/**
+ * Turn a populated collector into the preview the UI consumes.
+ * Shared by the JSON and text parsers so both behave identically.
+ */
+export function buildPreview(c: Collector, source: 'json' | 'text' = 'json'): ImportPreview {
+  const warnings: string[] = [];
 
   // Build sorted period days and detect cycle starts (gap > 2 days).
   const periodDates = [...c.periods.keys()].sort();
@@ -426,7 +437,9 @@ export function parseFloExport(raw: unknown): ImportPreview {
 
   if (periodDays.length === 0 && dailyDays.length === 0) {
     warnings.push(
-      'No period or symptom data was recognized in this file. Make sure it is a Flo data-export JSON (or a supported format).'
+      source === 'text'
+        ? "No period or symptom data was recognized in this file. Make sure it's the Flo text export (the .txt you received by email)."
+        : 'No period or symptom data was recognized in this file. Make sure it is a Flo data-export JSON (or a supported format).'
     );
   }
   if (c.unknownTokens.size > 0) {

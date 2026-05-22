@@ -12,6 +12,9 @@ A privacy-first period and cycle tracking PWA with partner sharing. Built with N
 - **Import from Flo (and others)** — Upload a Flo data-export `.json` and Luna parses your cycles, period days, symptoms, and moods, then imports them non-destructively (existing days are never overwritten). Tolerant of several export shapes; also accepts plain JSON arrays.
 - **Password reset** — "Forgot password?" on the sign-in screen sends a secure reset link.
 - **PWA** — Installable on iOS/Android, offline app-shell via service worker.
+- **Dark mode** — Light / dark / system themes with no flash on load; the whole palette flips via CSS variables. Quick toggle on the dashboard, full control in Settings.
+- **Gentle reminders** — Opt-in daily check-in nudge and "period approaching" alerts (2 days / 1 day / day-of), with a test button. Foreground/installed-PWA scheduling out of the box (see notes below).
+- **Encouragement** — A phase-aware daily affirmation and self-care suggestion, plus a low-pressure logging-streak chip.
 - **Row-level security** — All data scoped by RLS policies in Postgres. A partner can only see what you explicitly enabled.
 
 ## Stack
@@ -157,13 +160,30 @@ Any failure now lands on `/auth/login` with a **human-readable** message instead
 
 ## Importing from Flo
 
-Tap the **import icon** (top-right of the dashboard) or go to `/import`.
+Tap the **import icon** in Settings (or go to `/import`). Both Flo export formats are supported: the **`.txt`** file Flo emails when you request your data, and **`.json`** exports (from Flo or other apps).
 
-1. In Flo: **Menu → Help → Contact us → request a data export**, and choose **JSON** (not CSV). Flo emails you the file.
-2. Upload the `.json` on the Import screen. Luna shows a **preview** — cycles, period days, symptom days, and the date range — before anything is saved.
+1. In Flo: **Settings → Download my data** (or **Help → Contact us → request a data export**). Flo emails you a `.txt` file.
+2. Upload it on the Import screen. Luna shows a **preview** — cycles, period days, symptom days, and the date range — before anything is saved.
 3. Confirm. Days you've **already** logged in Luna are skipped; only new dates are added. Your most recent imported period start becomes the basis for predictions.
 
-The parser (`src/lib/import.ts`) is intentionally tolerant: it recognizes cycle objects (`period_start_date` / `period_end_date` / `period_length`), per-day events (`point_date` + `symptoms` / `mood`), and plain arrays like `[{ "date": "2024-01-01", "flow": "medium" }]`. Flow intensities and symptom/mood names are mapped to Luna's vocabulary; anything unmapped is reported in the preview rather than silently dropped. To support another app's format, extend the key lists and mapping tables at the top of that file.
+Two parsers feed one shared pipeline (`buildPreview`) so both formats behave identically:
+
+- **Text** (`src/lib/import-text.ts`) reads Flo's two-section `.txt`: `cycle N` blocks (`Period start date` / `Period end date` / `Pregnant` / `Period intensity`, plus optional per-day `Day N: intensity:` lines) and the `manual events` table (`index - start - end - Type - Subtype - value`). It imports periods + `Symptom`/`Mood` events, skips pregnancy cycles, and ignores Sleep/Water/Weight/Fluid/Disturber (Luna doesn't track those).
+- **JSON** (`src/lib/import.ts`) is intentionally tolerant: cycle objects (`period_start_date` / `period_end_date` / `period_length`), per-day events (`point_date` + `symptoms` / `mood`), and plain arrays like `[{ "date": "2024-01-01", "flow": "medium" }]`.
+
+`src/lib/import-file.ts` auto-detects which to use from the content and extension. Flow intensities and symptom/mood names map to Luna's vocabulary; genuinely unmappable types are reported in the preview. To support another format, extend the mapping tables at the top of the relevant parser.
+
+## Theming (dark mode)
+
+The palette lives entirely in CSS variables in `src/app/globals.css`. `:root` holds the light values and `.dark` remaps the same variable names (neutrals invert: `cream` = surfaces, `ink` = text; accents `rose` / `sage` / `mauve` are re-tuned). `tailwind.config.ts` maps every color token to `rgb(var(--token) / <alpha>)`, so existing utility classes (`bg-cream-50`, `text-ink-900`, …) are theme-aware with no per-component changes.
+
+`ThemeProvider` (`src/components/theme/`) persists the choice (`light` / `dark` / `system`) to `localStorage` and an inline script in `layout.tsx` applies the class before first paint to avoid a flash. To add a brand color, add a `--token` to both `:root` and `.dark`, then expose it in `tailwind.config.ts`.
+
+## Reminders & notifications
+
+Settings → **Reminders** asks for the Web Notification permission and stores preferences (`enabled`, daily time, period alerts) in `localStorage`. `ReminderScheduler` (mounted in `AppShell`) checks every minute while the app is open and fires at most one daily and one period reminder per day; the predicted next-period date is synced to `localStorage` by `PredictionSync` on the dashboard so alerts work without a round-trip.
+
+This is **foreground / installed-PWA** scheduling — it runs while Luna is open or running as an installed app. For true background push when the app is fully closed, add a server with VAPID keys: subscribe via `pushManager.subscribe`, store the subscription, and send pushes from a cron/server that your `public/sw.js` handles in a `push` event listener. The client pieces (permission flow, `showNotification`, SW registration) are already in place to build on.
 
 ## Disclaimer
 

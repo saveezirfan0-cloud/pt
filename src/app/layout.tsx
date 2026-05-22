@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Instrument_Serif, Manrope } from 'next/font/google';
 import './globals.css';
 import { PWARegister } from '@/components/PWARegister';
+import { ThemeProvider, themeInitScript } from '@/components/theme/ThemeProvider';
 
 const display = Instrument_Serif({
   weight: ['400'],
@@ -43,10 +44,15 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable}`}>
-      <body className="min-h-dvh bg-cream-50 text-ink-900 font-sans antialiased">
-        {children}
-        <PWARegister />
+    <html lang="en" className={`${display.variable} ${body.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
+      <body className="min-h-dvh text-ink-900 font-sans antialiased">
+        <ThemeProvider>
+          {children}
+          <PWARegister />
+        </ThemeProvider>
       </body>
     </html>
   );
