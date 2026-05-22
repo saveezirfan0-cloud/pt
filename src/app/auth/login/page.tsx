@@ -12,7 +12,7 @@ function LoginInner() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(() => prettyAuthError(params.get('error')));
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -53,6 +53,14 @@ function LoginInner() {
             autoComplete="current-password"
             required
           />
+          <div className="text-right -mt-1">
+            <Link
+              href="/auth/forgot"
+              className="text-xs text-rose-600 hover:text-rose-700 underline underline-offset-4"
+            >
+              Forgot password?
+            </Link>
+          </div>
           {err && (
             <p className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-3">
               {err}
@@ -69,13 +77,28 @@ function LoginInner() {
 
         <p className="mt-6 text-center text-ink-600 text-sm">
           New here?{' '}
-          <Link href="/auth/signup" className="text-rose-600 underline underline-offset-4">
+          <Link
+            href={`/auth/signup${next !== '/dashboard' ? `?next=${encodeURIComponent(next)}` : ''}`}
+            className="text-rose-600 underline underline-offset-4"
+          >
             Create an account
           </Link>
         </p>
       </div>
     </main>
   );
+}
+
+function prettyAuthError(code: string | null): string | null {
+  if (!code) return null;
+  const c = code.toLowerCase();
+  if (c.includes('expired')) return 'That link has expired. Please request a new one.';
+  if (c.includes('already') && c.includes('confirm')) return null;
+  if (c === 'auth_callback_failed' || c.includes('invalid') || c.includes('pkce')) {
+    return "We couldn't confirm that link. It may have expired or already been used — try signing in, or request a new email.";
+  }
+  // Otherwise surface Supabase's own (already human-readable) message.
+  return decodeURIComponent(code);
 }
 
 export default function LoginPage() {

@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { LogOut } from 'lucide-react';
+import { Import, LogOut } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 export function AppHeader({ name }: { name: string | null }) {
@@ -21,13 +22,23 @@ export function AppHeader({ name }: { name: string | null }) {
           {name ? <>Hi, <em className="italic text-rose-500">{name}</em></> : 'Welcome'}
         </h1>
       </div>
-      <button
-        onClick={signOut}
-        className="rounded-full h-10 w-10 grid place-items-center border border-cream-200 bg-cream-50/70 hover:bg-cream-100 text-ink-700"
-        aria-label="Sign out"
-      >
-        <LogOut size={18} />
-      </button>
+      <div className="flex items-center gap-2">
+        <Link
+          href="/import"
+          className="rounded-full h-10 w-10 grid place-items-center border border-cream-200 bg-cream-50/70 hover:bg-cream-100 text-ink-700"
+          aria-label="Import data"
+          title="Import from another app"
+        >
+          <Import size={18} />
+        </Link>
+        <button
+          onClick={signOut}
+          className="rounded-full h-10 w-10 grid place-items-center border border-cream-200 bg-cream-50/70 hover:bg-cream-100 text-ink-700"
+          aria-label="Sign out"
+        >
+          <LogOut size={18} />
+        </button>
+      </div>
     </header>
   );
 }

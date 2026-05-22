@@ -9,6 +9,8 @@ A privacy-first period and cycle tracking PWA with partner sharing. Built with N
 - **Calendar view** — Month grid with past periods, predicted periods, fertile window, and per-day notes.
 - **Insights** — Cycle-length history chart and most-logged symptoms / moods.
 - **Partner sharing** — Generate a single-use invite link, partner accepts, both sides can toggle exactly what is shared (periods, symptoms, predictions). Disconnect anytime.
+- **Import from Flo (and others)** — Upload a Flo data-export `.json` and Luna parses your cycles, period days, symptoms, and moods, then imports them non-destructively (existing days are never overwritten). Tolerant of several export shapes; also accepts plain JSON arrays.
+- **Password reset** — "Forgot password?" on the sign-in screen sends a secure reset link.
 - **PWA** — Installable on iOS/Android, offline app-shell via service worker.
 - **Row-level security** — All data scoped by RLS policies in Postgres. A partner can only see what you explicitly enabled.
 
@@ -29,7 +31,11 @@ A privacy-first period and cycle tracking PWA with partner sharing. Built with N
 3. In **Authentication → Providers**, make sure **Email** is enabled. For local testing you can also disable "Confirm email" under Auth settings so signups work without verifying.
 4. In **Authentication → URL Configuration**, set:
    - **Site URL:** `https://your-app.vercel.app` (after deploy) — for local dev, `http://localhost:3000`
-   - **Redirect URLs:** add both your Vercel URL and `http://localhost:3000/auth/callback`
+   - **Redirect URLs:** add **every exact callback URL** you use, including the wildcard path. At minimum:
+     - `https://your-app.vercel.app/auth/callback`
+     - `http://localhost:3000/auth/callback`
+
+     > ⚠️ If a confirmation or reset link sends you to `/auth/login?error=auth_callback_failed`, the #1 cause is that the callback URL isn't in this allowlist. Supabase refuses to redirect to URLs it doesn't recognize. Add it here (no trailing slash) and re-test.
 5. Grab your **Project URL** and **anon public key** from **Project Settings → API**.
 
 ## 2 · Local development
@@ -131,6 +137,33 @@ public/
 - **Palette / fonts** — `tailwind.config.ts` (colors), `src/app/layout.tsx` (fonts).
 - **Cycle math** — `src/lib/cycle.ts`. The averaging window and fertile-window definition are tweakable there.
 - **Symptom / mood options** — exported arrays in `src/lib/cycle.ts`.
+
+## Email confirmation & password reset
+
+`src/app/auth/callback/route.ts` handles **both** auth link styles, so it works whether your Supabase email templates use the default PKCE link or the token-hash style:
+
+- **`?code=…`** (PKCE / OAuth) → exchanged with `exchangeCodeForSession`.
+- **`?token_hash=…&type=…`** (OTP) → verified with `verifyOtp`. This style works even when the link is opened on a different device or browser from the one that signed up.
+
+If you want the most reliable cross-device email confirmation, set the **Confirm signup** template (Supabase → Authentication → Email Templates) to:
+
+```
+{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email
+```
+
+Password reset is already wired up: **Forgot password?** on the sign-in page calls `resetPasswordForEmail` with a redirect to `/auth/callback?next=/auth/reset`. The callback establishes the recovery session and forwards the user to `/auth/reset`, where they set a new password via `updateUser`. The default recovery email template (`{{ .ConfirmationURL }}`) works as-is.
+
+Any failure now lands on `/auth/login` with a **human-readable** message instead of a bare `auth_callback_failed` code.
+
+## Importing from Flo
+
+Tap the **import icon** (top-right of the dashboard) or go to `/import`.
+
+1. In Flo: **Menu → Help → Contact us → request a data export**, and choose **JSON** (not CSV). Flo emails you the file.
+2. Upload the `.json` on the Import screen. Luna shows a **preview** — cycles, period days, symptom days, and the date range — before anything is saved.
+3. Confirm. Days you've **already** logged in Luna are skipped; only new dates are added. Your most recent imported period start becomes the basis for predictions.
+
+The parser (`src/lib/import.ts`) is intentionally tolerant: it recognizes cycle objects (`period_start_date` / `period_end_date` / `period_length`), per-day events (`point_date` + `symptoms` / `mood`), and plain arrays like `[{ "date": "2024-01-01", "flow": "medium" }]`. Flow intensities and symptom/mood names are mapped to Luna's vocabulary; anything unmapped is reported in the preview rather than silently dropped. To support another app's format, extend the key lists and mapping tables at the top of that file.
 
 ## Disclaimer
 
