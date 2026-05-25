@@ -59,6 +59,9 @@ export default async function DashboardPage() {
       supabase.from('islamic_settings').select('*').eq('user_id', user.id).maybeSingle(),
     ]);
 
+  // Supporters (partners with no cycle of their own) get the Together view.
+  if (profile?.account_kind === 'supporter') redirect('/together');
+
   const pregnancyInfo = pregnancy ? computePregnancyInfo(pregnancy as Pregnancy) : null;
 
   // Faith status (only when Islamic mode is enabled).

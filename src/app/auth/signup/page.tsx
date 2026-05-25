@@ -1,12 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
-export default function SignupPage() {
+function safeNext(next: string | null): string {
+  if (next && next.startsWith('/') && !next.startsWith('//')) return next;
+  return '/dashboard';
+}
+
+function SignupInner() {
   const router = useRouter();
+  const params = useSearchParams();
+  const next = safeNext(params.get('next'));
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,15 +27,15 @@ export default function SignupPage() {
     setMsg(null);
     setLoading(true);
 
+    const origin = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
     const supabase = createClient();
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { display_name: displayName },
-        emailRedirectTo: `${
-          process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
-        }/auth/callback`,
+        // Carry `next` through email confirmation so invite links survive.
+        emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     });
     setLoading(false);
@@ -39,30 +46,36 @@ export default function SignupPage() {
     }
 
     if (data.session) {
-      router.replace('/dashboard');
+      router.replace(next);
       router.refresh();
     } else {
-      setMsg('Check your inbox to confirm your email, then sign in.');
+      setMsg('Check your inbox to confirm your email, then come back to continue.');
     }
   }
+
+  const loginHref = next !== '/dashboard' ? `/auth/login?next=${encodeURIComponent(next)}` : '/auth/login';
+  const isInvite = next.startsWith('/partner/accept');
 
   return (
     <main className="min-h-dvh flex items-center justify-center px-6 safe-top safe-bottom">
       <div className="w-full max-w-sm animate-slide-up">
         <Link href="/" className="text-sm text-ink-600 hover:text-ink-900">← back</Link>
-        <h1 className="font-serif text-5xl mt-6 leading-tight">Start your <em className="italic text-rose-500">cycle</em>.</h1>
-        <p className="text-ink-600 mt-2">It takes less than a minute.</p>
+        <h1 className="font-serif text-5xl mt-6 leading-tight">
+          {isInvite ? (
+            <>Join your <em className="italic text-rose-500">partner</em>.</>
+          ) : (
+            <>Start your <em className="italic text-rose-500">cycle</em>.</>
+          )}
+        </h1>
+        <p className="text-ink-600 mt-2">
+          {isInvite
+            ? 'Create an account to accept the invitation.'
+            : 'It takes less than a minute.'}
+        </p>
 
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
           <Field label="Name" value={displayName} onChange={setDisplayName} required />
-          <Field
-            label="Email"
-            type="email"
-            value={email}
-            onChange={setEmail}
-            autoComplete="email"
-            required
-          />
+          <Field label="Email" type="email" value={email} onChange={setEmail} autoComplete="email" required />
           <Field
             label="Password"
             type="password"
@@ -72,14 +85,10 @@ export default function SignupPage() {
             required
           />
           {err && (
-            <p className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-3">
-              {err}
-            </p>
+            <p className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-3">{err}</p>
           )}
           {msg && (
-            <p className="text-sm text-sage-500 bg-sage-50 border border-sage-200 rounded-lg p-3">
-              {msg}
-            </p>
+            <p className="text-sm text-sage-500 bg-sage-50 border border-sage-200 rounded-lg p-3">{msg}</p>
           )}
           <button
             type="submit"
@@ -92,12 +101,20 @@ export default function SignupPage() {
 
         <p className="mt-6 text-center text-ink-600 text-sm">
           Already have one?{' '}
-          <Link href="/auth/login" className="text-rose-600 underline underline-offset-4">
+          <Link href={loginHref} className="text-rose-600 underline underline-offset-4">
             Sign in
           </Link>
         </p>
       </div>
     </main>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupInner />
+    </Suspense>
   );
 }
 

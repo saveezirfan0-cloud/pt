@@ -8,7 +8,8 @@ A privacy-first period and cycle tracking PWA with partner sharing. Built with N
 - **Insights & patterns** — Full cycle history & statistics (average / shortest / longest cycle, variation, regularity), a complete list of every cycle with its length and deviation, a trend chart, an upcoming-periods forecast, a **symptom × cycle-phase heatmap**, and **plain-language pattern insights** ("you log cramps most during your menstrual phase", "short sleep brings on more headaches", "your cycle has been running longer recently"). Built from your entire history.
 - **Predictions** — Cycle-length and period-length averages computed from your last 6 cycles, with ovulation and fertile-window estimates.
 - **Calendar view** — Month grid with past periods, predicted periods, fertile window, and per-day notes. Loads your entire history (tap the month title to jump to any month/year), so imported data going back years displays correctly.
-- **Partner sharing** — Generate a single-use invite link, partner accepts, both sides can toggle exactly what is shared (periods, symptoms, predictions). Disconnect anytime.
+- **Partner sharing** — Generate a single-use invite link, partner accepts, and you toggle exactly what is shared (periods, symptoms, predictions, pregnancy, fertility). Disconnect anytime.
+- **Supporter experience** — A connected partner who doesn't track their own cycle gets a dedicated **Together** view written for them: her current phase in plain language, concrete "how to support her this week" tips, a PMS/period heads-up, key dates (if shared), and trimester-specific guidance when she's pregnant. They only ever see what she shares.
 - **Import from Flo (and others)** — Upload a Flo data-export `.json` and Luna parses your cycles, period days, symptoms, and moods, then imports them non-destructively (existing days are never overwritten). Tolerant of several export shapes; also accepts plain JSON arrays.
 - **Password reset** — "Forgot password?" on the sign-in screen sends a secure reset link.
 - **PWA** — Installable on iOS/Android, offline app-shell via service worker.
@@ -33,7 +34,7 @@ A privacy-first period and cycle tracking PWA with partner sharing. Built with N
 ## 1 · Set up Supabase
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. In **SQL Editor**, paste the entire contents of `supabase/schema.sql` and run it. This creates the tables, RLS policies, triggers, and RPCs. Then run `supabase/pregnancy.sql` (pregnancy mode), `supabase/insights.sql` (custom symptoms + intensity), `supabase/islamic.sql` (faith & purity), and `supabase/fertility.sql` (fertility & FAM). All are additive and safe to run on an existing database.
+2. In **SQL Editor**, paste the entire contents of `supabase/schema.sql` and run it. This creates the tables, RLS policies, triggers, and RPCs. Then run `supabase/pregnancy.sql` (pregnancy mode), `supabase/insights.sql` (custom symptoms + intensity), `supabase/islamic.sql` (faith & purity), `supabase/fertility.sql` (fertility & FAM), and `supabase/partner.sql` (supporter experience). All are additive and safe to run on an existing database.
 3. In **Authentication → Providers**, make sure **Email** is enabled. For local testing you can also disable "Confirm email" under Auth settings so signups work without verifying.
 4. In **Authentication → URL Configuration**, set:
    - **Site URL:** `https://your-app.vercel.app` (after deploy) — for local dev, `http://localhost:3000`
@@ -209,7 +210,6 @@ All fetal data are general averages, not medical advice — the app says so wher
 These are designed but intentionally deferred so each ships well rather than half-done:
 
 - **Breastfeeding-aware prediction** — a postpartum mode that widens or flags prediction uncertainty based on baby age, night feeds, pumping, solids, and weaning, since postpartum cycles are often irregular or anovulatory.
-- **Differentiated partner experience** — a male/partner view focused on understanding, key info, and how to help (fertile window, PMS heads-up, pregnancy progress), opt-in per area by the primary user. Includes fixing partner sign-up onboarding.
 - **AI chat assistant** — a conversational wellness helper. The rule-based insight engine above already covers most "AI insights"; a true LLM chat needs a server route holding an Anthropic API key (the client pieces are straightforward to add).
 - **Wearable integration** — requires device OAuth (Apple Health / Google Fit / Oura etc.); out of scope until the above land.
 

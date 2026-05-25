@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import { HeartHandshake } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { AppShell } from '@/components/AppShell';
 import { PartnerPanel } from '@/components/PartnerPanel';
@@ -24,6 +26,9 @@ export default async function PartnerPage() {
       .eq('user_id', user.id),
   ]);
 
+  // Does this user support a partner (i.e. has an 'owner'-role connection)?
+  const supportsSomeone = (connections || []).some((c: any) => c.role === 'owner');
+
   return (
     <AppShell>
       <div className="mb-5">
@@ -34,6 +39,22 @@ export default async function PartnerPage() {
           more. You can revoke access anytime.
         </p>
       </div>
+
+      {supportsSomeone && (
+        <Link
+          href="/together"
+          className="mb-6 flex items-center gap-3 rounded-[1.5rem] border border-rose-200 bg-rose-50/60 p-4 hover:bg-rose-50 transition"
+        >
+          <div className="h-10 w-10 rounded-2xl bg-rose-100 grid place-items-center text-rose-600">
+            <HeartHandshake size={18} />
+          </div>
+          <div className="flex-1">
+            <p className="font-medium text-ink-900 text-sm">Supporting a partner</p>
+            <p className="text-xs text-ink-500">See their cycle and how to support them.</p>
+          </div>
+        </Link>
+      )}
+
       <PartnerPanel
         userId={user.id}
         invites={invites || []}

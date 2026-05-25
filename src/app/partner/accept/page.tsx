@@ -64,13 +64,13 @@ function AcceptInner() {
         </p>
         <div className="mt-6 space-y-3">
           <Link
-            href={`/auth/signup?next=/partner/accept?code=${code}`}
+            href={`/auth/signup?next=${encodeURIComponent(`/partner/accept?code=${code}`)}`}
             className="block w-full rounded-2xl bg-rose-500 text-cream-50 text-center py-4 font-medium"
           >
             Create account
           </Link>
           <Link
-            href={`/auth/login?next=/partner/accept?code=${code}`}
+            href={`/auth/login?next=${encodeURIComponent(`/partner/accept?code=${code}`)}`}
             className="block w-full rounded-2xl border border-rose-200 text-center py-4 font-medium"
           >
             Sign in
