@@ -20,7 +20,7 @@ import {
 import { computeStreak } from '@/lib/streak';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Baby, Moon } from 'lucide-react';
+import { Baby, Flower2, Moon } from 'lucide-react';
 import { subDays, formatISO } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
@@ -170,6 +170,20 @@ export default async function DashboardPage() {
         <Affirmation info={info} />
         {info.phase !== 'unknown' && <TodayInsights info={info} />}
         <QuickLog />
+        {!pregnancyInfo && (
+          <Link
+            href="/fertility"
+            className="flex items-center gap-3 rounded-[1.5rem] border border-cream-200 bg-cream-50/70 p-4 hover:bg-cream-100 transition"
+          >
+            <div className="h-10 w-10 rounded-2xl bg-mauve-100 grid place-items-center text-mauve-500">
+              <Flower2 size={18} />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-ink-900 text-sm">Fertility &amp; conception</p>
+              <p className="text-xs text-ink-500">Chart BBT, confirm ovulation, see your fertile window.</p>
+            </div>
+          </Link>
+        )}
         {!pregnancyInfo && (
           <Link
             href="/pregnancy/start"
