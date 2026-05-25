@@ -10,10 +10,17 @@ import { PredictionSync } from '@/components/PredictionSync';
 import { PregnancyHero } from '@/components/PregnancyHero';
 import { computeCycleInfo, type PeriodLog } from '@/lib/cycle';
 import { computePregnancyInfo, type Pregnancy } from '@/lib/pregnancy';
+import {
+  classifiedDayMap,
+  classifyEpisodes,
+  STATE_META,
+  todayStatus,
+  type IslamicSettings,
+} from '@/lib/islamic';
 import { computeStreak } from '@/lib/streak';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { Baby } from 'lucide-react';
+import { Baby, Moon } from 'lucide-react';
 import { subDays, formatISO } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
@@ -28,7 +35,7 @@ export default async function DashboardPage() {
   const since = formatISO(subDays(new Date(), 365), { representation: 'date' });
   const streakSince = formatISO(subDays(new Date(), 120), { representation: 'date' });
 
-  const [{ data: profile }, { data: periods }, { data: partners }, { data: dailyDates }, { data: pregnancy }] =
+  const [{ data: profile }, { data: periods }, { data: partners }, { data: dailyDates }, { data: pregnancy }, { data: islamicRow }] =
     await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
       supabase
@@ -49,9 +56,36 @@ export default async function DashboardPage() {
         .eq('user_id', user.id)
         .eq('status', 'active')
         .maybeSingle(),
+      supabase.from('islamic_settings').select('*').eq('user_id', user.id).maybeSingle(),
     ]);
 
   const pregnancyInfo = pregnancy ? computePregnancyInfo(pregnancy as Pregnancy) : null;
+
+  // Faith status (only when Islamic mode is enabled).
+  let faith: { headline: string; label: string; color: string; href: string } | null = null;
+  if (islamicRow?.enabled) {
+    const settings = islamicRow as unknown as IslamicSettings;
+    const allPeriods = (periods as PeriodLog[]) || [];
+    // Births for nifas detection are fetched lazily only when enabled.
+    const { data: births } = await supabase
+      .from('pregnancies')
+      .select('end_date')
+      .eq('user_id', user.id)
+      .eq('status', 'ended')
+      .eq('end_reason', 'birth')
+      .not('end_date', 'is', null);
+    const birthEvents = ((births as { end_date: string }[]) || []).map((b) => ({ date: b.end_date }));
+    const episodes = classifyEpisodes(allPeriods, birthEvents, settings);
+    const map = classifiedDayMap(episodes);
+    const todayKey = formatISO(new Date(), { representation: 'date' });
+    const st = todayStatus(todayKey, map, episodes);
+    faith = {
+      headline: st.headline,
+      label: STATE_META[st.state].label,
+      color: STATE_META[st.state].color,
+      href: '/faith',
+    };
+  }
 
   const info = computeCycleInfo(
     (periods as PeriodLog[]) || [],
@@ -117,6 +151,21 @@ export default async function DashboardPage() {
         {pregnancyInfo ? (
           <PregnancyHero info={pregnancyInfo} babyName={(pregnancy as Pregnancy).baby_name} compact />
         ) : null}
+        {faith && (
+          <Link
+            href={faith.href}
+            className="flex items-center gap-3 rounded-[1.5rem] border p-4 transition hover:-translate-y-0.5"
+            style={{ borderColor: faith.color }}
+          >
+            <div className="h-10 w-10 rounded-2xl bg-mauve-100 grid place-items-center text-mauve-500 shrink-0">
+              <Moon size={18} />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-ink-900 text-sm">{faith.headline}</p>
+              <p className="text-xs text-ink-500">{faith.label}</p>
+            </div>
+          </Link>
+        )}
         <CycleRing info={info} />
         <Affirmation info={info} />
         {info.phase !== 'unknown' && <TodayInsights info={info} />}

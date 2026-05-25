@@ -16,6 +16,7 @@ A privacy-first period and cycle tracking PWA with partner sharing. Built with N
 - **Gentle reminders** — Opt-in daily check-in nudge and "period approaching" alerts (2 days / 1 day / day-of), with a test button. Foreground/installed-PWA scheduling out of the box (see notes below).
 - **Encouragement** — A phase-aware daily affirmation and self-care suggestion, plus a low-pressure logging-streak chip.
 - **Pregnancy mode** — Switch on with your due date, last period, or conception date. Week-by-week fetal development (size comparisons, length/weight, milestones) with a scrubber to look ahead or back, a due-date countdown and trimester tracker, a kick counter, a contraction timer, and weight-gain tracking. Partners can follow along too.
+- **Faith & purity (Islamic mode)** — Opt-in organisational tracking that distinguishes menstruation (hayd), postnatal bleeding (nifas), irregular bleeding (istihada), and purity (tuhr); shows a "prayer & fasting excused / resume / as normal" status for today; sends a ghusl reminder when bleeding ends; and uses **madhhab-aware, editable day-limits** (Hanafi / Shafi'i / Maliki / Hanbali / Ja'fari / custom). Organisational help only — not a fatwa.
 - **Row-level security** — All data scoped by RLS policies in Postgres. A partner can only see what you explicitly enabled.
 
 ## Stack
@@ -31,7 +32,7 @@ A privacy-first period and cycle tracking PWA with partner sharing. Built with N
 ## 1 · Set up Supabase
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. In **SQL Editor**, paste the entire contents of `supabase/schema.sql` and run it. This creates the tables, RLS policies, triggers, and RPCs. Then run `supabase/pregnancy.sql` (pregnancy mode) and `supabase/insights.sql` (custom symptoms + intensity). Both are additive and safe to run on an existing database.
+2. In **SQL Editor**, paste the entire contents of `supabase/schema.sql` and run it. This creates the tables, RLS policies, triggers, and RPCs. Then run `supabase/pregnancy.sql` (pregnancy mode), `supabase/insights.sql` (custom symptoms + intensity), and `supabase/islamic.sql` (faith & purity). All are additive and safe to run on an existing database.
 3. In **Authentication → Providers**, make sure **Email** is enabled. For local testing you can also disable "Confirm email" under Auth settings so signups work without verifying.
 4. In **Authentication → URL Configuration**, set:
    - **Site URL:** `https://your-app.vercel.app` (after deploy) — for local dev, `http://localhost:3000`
@@ -208,7 +209,6 @@ These are designed but intentionally deferred so each ships well rather than hal
 
 - **Fertility / FAM (TTC & natural birth control)** — BBT charting, cervical-mucus and LH-test logging, ovulation confirmation, fertile-window + implantation-window estimates, pregnancy-probability scoring. Needs a `fertility_logs` table and a charting view. (Natural birth control carries real safety implications and will ship with prominent guidance to use a clinically validated method/instructor.)
 - **Breastfeeding-aware prediction** — a postpartum mode that widens or flags prediction uncertainty based on baby age, night feeds, pumping, solids, and weaning, since postpartum cycles are often irregular or anovulatory.
-- **Islamic women's health (organisational, not fatwa)** — nifas vs istihada vs menstruation vs purity distinction, ghusl reminders, "prayer/fasting currently excused" status derived from logged bleeding, and madhhab-aware day-limit settings (Hanafi/Shafi'i/Maliki/Hanbali/Ja'fari). Will ship with clear "consult a scholar" disclaimers.
 - **Differentiated partner experience** — a male/partner view focused on understanding, key info, and how to help (fertile window, PMS heads-up, pregnancy progress), opt-in per area by the primary user. Includes fixing partner sign-up onboarding.
 - **AI chat assistant** — a conversational wellness helper. The rule-based insight engine above already covers most "AI insights"; a true LLM chat needs a server route holding an Anthropic API key (the client pieces are straightforward to add).
 - **Wearable integration** — requires device OAuth (Apple Health / Google Fit / Oura etc.); out of scope until the above land.
