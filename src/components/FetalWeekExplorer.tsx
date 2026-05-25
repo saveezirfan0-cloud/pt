@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Ruler, Weight } from 'lucide-react';
+import { Apple, Baby, ChevronLeft, ChevronRight, Ruler, Weight } from 'lucide-react';
 import {
   fetalDataForWeek,
   MAX_FETAL_WEEK,
   MIN_FETAL_WEEK,
 } from '@/lib/fetal-development';
+import { FetalIllustration } from '@/components/FetalIllustration';
 
 function formatLength(cm: number | null): string {
   if (cm == null) return '—';
@@ -23,6 +24,7 @@ function formatWeight(g: number | null): string {
 export function FetalWeekExplorer({ currentWeek }: { currentWeek: number }) {
   const clampedStart = Math.min(MAX_FETAL_WEEK, Math.max(MIN_FETAL_WEEK, currentWeek));
   const [week, setWeek] = useState(clampedStart);
+  const [view, setView] = useState<'size' | 'illustration'>('size');
   const data = fetalDataForWeek(week);
   const isCurrent = week === clampedStart;
 
@@ -53,11 +55,39 @@ export function FetalWeekExplorer({ currentWeek }: { currentWeek: number }) {
         </button>
       </div>
 
-      <div className="mt-5 flex flex-col items-center text-center">
-        <span className="text-6xl" aria-hidden>
-          {data.emoji}
-        </span>
-        <p className="mt-2 font-serif text-2xl text-ink-900">size of {data.fruit}</p>
+      {/* View toggle: fruit size vs illustration */}
+      <div className="mt-5 flex rounded-full border border-cream-200 bg-cream-50 p-1">
+        <button
+          onClick={() => setView('size')}
+          className={[
+            'flex-1 flex items-center justify-center gap-1.5 rounded-full py-2 text-sm transition',
+            view === 'size' ? 'bg-mauve-500 text-cream-50' : 'text-ink-600',
+          ].join(' ')}
+        >
+          <Apple size={15} /> Fruit size
+        </button>
+        <button
+          onClick={() => setView('illustration')}
+          className={[
+            'flex-1 flex items-center justify-center gap-1.5 rounded-full py-2 text-sm transition',
+            view === 'illustration' ? 'bg-mauve-500 text-cream-50' : 'text-ink-600',
+          ].join(' ')}
+        >
+          <Baby size={15} /> Baby
+        </button>
+      </div>
+
+      <div className="mt-5 flex flex-col items-center text-center min-h-[180px] justify-center">
+        {view === 'size' ? (
+          <>
+            <span className="text-6xl" aria-hidden>
+              {data.emoji}
+            </span>
+            <p className="mt-2 font-serif text-2xl text-ink-900">size of {data.fruit}</p>
+          </>
+        ) : (
+          <FetalIllustration week={week} />
+        )}
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-2">

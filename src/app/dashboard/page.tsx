@@ -32,19 +32,18 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/auth/login');
 
-  const since = formatISO(subDays(new Date(), 365), { representation: 'date' });
   const streakSince = formatISO(subDays(new Date(), 120), { representation: 'date' });
 
   const [{ data: profile }, { data: periods }, { data: partners }, { data: dailyDates }, { data: pregnancy }, { data: islamicRow }] =
     await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+      // Full history (ordered) so predictions match the calendar exactly.
       supabase
         .from('period_logs')
         .select('*')
         .eq('user_id', user.id)
-        .gte('date', since)
         .order('date', { ascending: true }),
-      supabase.from('partner_connections').select('partner_id').eq('user_id', user.id),
+      supabase.from('partner_connections').select('partner_id, role').eq('user_id', user.id),
       supabase
         .from('daily_logs')
         .select('date')
@@ -59,8 +58,14 @@ export default async function DashboardPage() {
       supabase.from('islamic_settings').select('*').eq('user_id', user.id).maybeSingle(),
     ]);
 
-  // Supporters (partners with no cycle of their own) get the Together view.
-  if (profile?.account_kind === 'supporter') redirect('/together');
+  // Supporters get the Together view instead of the cycle dashboard.
+  // Trigger on either signal: the explicit account_kind flag, OR they support a
+  // tracker (an 'owner'-role connection) while having no period data of their own.
+  const ownPeriods = (periods as PeriodLog[]) || [];
+  const supportsATracker = (partners || []).some((p: any) => p.role === 'owner');
+  const isSupporter =
+    profile?.account_kind === 'supporter' || (supportsATracker && ownPeriods.length === 0);
+  if (isSupporter) redirect('/together');
 
   const pregnancyInfo = pregnancy ? computePregnancyInfo(pregnancy as Pregnancy) : null;
 
@@ -91,7 +96,7 @@ export default async function DashboardPage() {
   }
 
   const info = computeCycleInfo(
-    (periods as PeriodLog[]) || [],
+    ownPeriods,
     profile?.average_cycle_length || 28,
     profile?.average_period_length || 5
   );
@@ -105,8 +110,12 @@ export default async function DashboardPage() {
 
   let partnerData: { name: string; info: ReturnType<typeof computeCycleInfo> } | null = null;
   let partnerPregnancy: { name: string; info: ReturnType<typeof computePregnancyInfo> } | null = null;
-  if (partners && partners.length > 0) {
-    const partnerId = partners[0].partner_id;
+  // Only surface a partner's cycle if THEY are a tracker (role 'owner' on our
+  // row means partner_id is the tracked person). A supporter partner (e.g. a
+  // male partner with no cycle) should never render a cycle card.
+  const trackedPartner = (partners || []).find((p: any) => p.role === 'owner') || null;
+  if (trackedPartner) {
+    const partnerId = trackedPartner.partner_id;
     const [{ data: pProfile }, { data: pPeriods }, { data: pPreg }] = await Promise.all([
       supabase
         .from('profiles')
@@ -117,7 +126,6 @@ export default async function DashboardPage() {
         .from('period_logs')
         .select('*')
         .eq('user_id', partnerId)
-        .gte('date', since)
         .order('date', { ascending: true }),
       supabase
         .from('pregnancies')
@@ -126,21 +134,23 @@ export default async function DashboardPage() {
         .eq('status', 'active')
         .maybeSingle(),
     ]);
-    if (pProfile) {
+    const partnerPeriods = (pPeriods as PeriodLog[]) || [];
+    // Guard: only render a cycle card if the partner actually has period data.
+    if (pProfile && partnerPeriods.length > 0) {
       partnerData = {
         name: pProfile.display_name || 'Partner',
         info: computeCycleInfo(
-          (pPeriods as PeriodLog[]) || [],
+          partnerPeriods,
           pProfile.average_cycle_length || 28,
           pProfile.average_period_length || 5
         ),
       };
-      if (pPreg) {
-        partnerPregnancy = {
-          name: pProfile.display_name || 'Partner',
-          info: computePregnancyInfo(pPreg as Pregnancy),
-        };
-      }
+    }
+    if (pProfile && pPreg) {
+      partnerPregnancy = {
+        name: pProfile.display_name || 'Partner',
+        info: computePregnancyInfo(pPreg as Pregnancy),
+      };
     }
   }
 
